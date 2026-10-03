@@ -28,6 +28,7 @@ export const FraudDetectionPage = () => {
   const [statusFilter, setStatusFilter] = useState('All');
   const [severityFilter, setSeverityFilter] = useState('All');
   const [investigatingId, setInvestigatingId] = useState(null);
+  const [explaining, setExplaining] = useState(false);
 
   const fetchAlerts = useCallback(async () => {
     setLoading(true);
@@ -166,7 +167,7 @@ export const FraudDetectionPage = () => {
             <ShieldAlert className="w-6 h-6 text-rose-500" />
             Fraud Detection
           </h1>
-          <p className="text-sm text-slate-500 mt-0.5">AI-powered forensic fraud alerts and anomaly detection</p>
+          <p className="text-sm text-slate-500 mt-0.5">Scores come from the desk rules. Open an alert to ask OpenRouter for a written review.</p>
         </div>
         <button
           onClick={fetchAlerts}
@@ -256,6 +257,30 @@ export const FraudDetectionPage = () => {
                 <p className="text-sm text-slate-800">{selectedAlert.recommendedAction}</p>
               </div>
             )}
+
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-semibold text-slate-700">OpenRouter note</p>
+                <button
+                  onClick={async () => {
+                    setExplaining(true);
+                    try {
+                      const res = await api.post(`/ai/alerts/${selectedAlert._id}/explain`);
+                      setSelectedAlert({ ...selectedAlert, modelNote: res.data.explanation });
+                    } catch (err) {
+                      showToast(err.message || 'Could not write the note', 'error');
+                    } finally {
+                      setExplaining(false);
+                    }
+                  }}
+                  disabled={explaining}
+                  className="text-xs px-2 py-1 rounded-lg bg-slate-800 text-white disabled:opacity-50"
+                >
+                  {explaining ? 'Writing…' : 'Write a note'}
+                </button>
+              </div>
+              <p className="text-sm text-slate-700">{selectedAlert.modelNote || 'No written note yet. The score stays the one already stored on this alert.'}</p>
+            </div>
 
             <div>
               <p className="text-xs text-slate-400 mb-1">Amount</p>

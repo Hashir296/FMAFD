@@ -2,6 +2,9 @@ const aiFraudEngine = require('../services/aiFraudEngine');
 const aiForecastingEngine = require('../services/aiForecastingEngine');
 const aiInsightsEngine = require('../services/aiInsightsEngine');
 const aiAssistantEngine = require('../services/aiAssistantEngine');
+const openRouter = require('../services/openRouter');
+const { buildBooksContext } = require('../services/booksContext');
+const FraudAlert = require('../models/FraudAlert');
 const Transaction = require('../models/Transaction');
 const Vendor = require('../models/Vendor');
 const Employee = require('../models/Employee');
@@ -93,14 +96,90 @@ const getAnomalies = async (req, res) => {
 const chatAssistant = async (req, res) => {
   try {
     const { query } = req.body;
-    if (!query) {
+    if (!query || !String(query).trim()) {
       return res.status(400).json({ success: false, message: 'Query is required' });
     }
 
-    const response = await aiAssistantEngine.processQuery(query);
-    res.json({ success: true, data: response });
+    if (!process.env.OPENROUTER_API_KEY) {
+      const response = await aiAssistantEngine.processQuery(query);
+      return res.json({ success: true, data: response });
+    }
+
+    const books = await buildBooksContext();
+    const { text, model } = await openRouter.chat([
+      { role: 'system', content: openRouter.SYSTEM },
+      {
+        role: 'user',
+        content: `Posted books:\n${JSON.stringify(books)}\n\nQuestion: ${String(query).trim()}`,
+      },
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        query,
+        intent: 'books',
+        answer: text,
+        model,
+        keyMetrics: [
+          { label: 'Income', value: books.totals.income },
+          { label: 'Expenses', value: books.totals.expenses },
+          { label: 'Cash', value: books.totals.cash },
+        ],
+      },
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+};
+
+const writeReview = async (req, res) => {
+  try {
+    const books = await buildBooksContext();
+    const { text, model } = await openRouter.chat([
+      { role: 'system', content: openRouter.SYSTEM },
+      {
+        role: 'user',
+        content: `Write a short finance-desk review of these posted books. Mention cash, profit, any budget that is over its amount, overdue invoices, and open fraud alerts. Four to six sentences.\n${JSON.stringify(books)}`,
+      },
+    ]);
+    res.json({ success: true, data: { review: text, model, asOf: books.asOf } });
+  } catch (error) {
+    res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+};
+
+const explainAlert = async (req, res) => {
+  try {
+    const alert = await FraudAlert.findById(req.params.id);
+    if (!alert) {
+      return res.status(404).json({ success: false, message: 'Alert not found' });
+    }
+
+    const { text, model } = await openRouter.chat([
+      { role: 'system', content: openRouter.SYSTEM },
+      {
+        role: 'user',
+        content: `Explain this fraud alert for a finance reviewer in three or four sentences. The risk score was already calculated by the desk rules. Do not change the score. Say what to check next.\n${JSON.stringify({
+          id: alert.alertId,
+          entity: alert.entityName,
+          amount: alert.amount,
+          riskScore: alert.riskScore,
+          riskLevel: alert.riskLevel,
+          type: alert.detectionType,
+          status: alert.status,
+          reasons: alert.reasons,
+          evidence: alert.evidence,
+          recommendedAction: alert.recommendedAction,
+        })}`,
+      },
+    ]);
+
+    alert.modelNote = text;
+    await alert.save();
+    res.json({ success: true, data: { explanation: text, model } });
+  } catch (error) {
+    res.status(error.status || 500).json({ success: false, message: error.message });
   }
 };
 
@@ -122,5 +201,7 @@ module.exports = {
   getForecast,
   getAnomalies,
   chatAssistant,
+  writeReview,
+  explainAlert,
   scoreTransaction,
 };

@@ -6,6 +6,8 @@ const {
   getForecast,
   getAnomalies,
   chatAssistant,
+  writeReview,
+  explainAlert,
   scoreTransaction,
 } = require('../controllers/aiController');
 const { protect } = require('../middleware/auth');
@@ -20,6 +22,8 @@ router.post('/generate-insights', getInsights);
 router.get('/forecast', getForecast);
 router.get('/anomalies', getAnomalies);
 router.post('/assistant/chat', chatAssistant);
+router.get('/review', writeReview);
+router.post('/alerts/:id/explain', explainAlert);
 router.post('/score-transaction', scoreTransaction);
 
 module.exports = router;

@@ -40,6 +40,7 @@ const fraudAlertSchema = new mongoose.Schema(
     assignedTo: { type: String, default: 'Unassigned' },
     investigationRef: { type: mongoose.Schema.Types.ObjectId, ref: 'Investigation' },
     resolutionNotes: { type: String, default: '' },
+    modelNote: { type: String, default: '' },
   },
   { timestamps: true }
 );

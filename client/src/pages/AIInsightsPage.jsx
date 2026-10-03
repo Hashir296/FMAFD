@@ -14,6 +14,11 @@ export const AIInsightsPage = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
+  const [question, setQuestion] = useState('');
+  const [asking, setAsking] = useState(false);
+  const [answer, setAnswer] = useState(null);
+  const [review, setReview] = useState(null);
+  const [reviewing, setReviewing] = useState(false);
 
   const load = async () => {
     const res = await api.get('/ai/insights');
@@ -26,6 +31,32 @@ export const AIInsightsPage = () => {
       .catch((err) => console.error(err))
       .finally(() => setLoading(false));
   }, []);
+
+  const ask = async (event) => {
+    event.preventDefault();
+    if (!question.trim()) return;
+    setAsking(true);
+    try {
+      const res = await api.post('/ai/assistant/chat', { query: question.trim() });
+      setAnswer(res.data);
+    } catch (err) {
+      showToast(err.message || 'Could not ask the books', 'error');
+    } finally {
+      setAsking(false);
+    }
+  };
+
+  const writeReview = async () => {
+    setReviewing(true);
+    try {
+      const res = await api.get('/ai/review');
+      setReview(res.data);
+    } catch (err) {
+      showToast(err.message || 'Could not write the review', 'error');
+    } finally {
+      setReviewing(false);
+    }
+  };
 
   const refresh = async () => {
     setRefreshing(true);
@@ -55,13 +86,45 @@ export const AIInsightsPage = () => {
       <div className="flex items-end justify-between gap-3">
         <div>
           <h1 className="font-serif text-4xl text-[#1C2B24]">Ledger notes</h1>
-          <p className="text-sm text-[#6B6256] mt-1">Each note is calculated from transactions, budgets, invoices, vendors, and open alerts.</p>
+          <p className="text-sm text-[#6B6256] mt-1">The cards are calculated from the books. The written review and questions are answered by OpenRouter from those same figures.</p>
         </div>
         <button onClick={refresh} disabled={refreshing} className="flex items-center gap-2 bg-[#1C2B24] text-[#F7F1E8] px-3 py-2 rounded-md text-sm">
           <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
           {refreshing ? 'Recalculating…' : 'Recalculate'}
         </button>
       </div>
+
+      <section className="bg-white border border-[#DDD4C4] rounded-md p-5 space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-serif text-2xl">Written review</h2>
+          <button onClick={writeReview} disabled={reviewing} className="px-3 py-2 border border-[#DDD4C4] rounded-md text-sm">
+            {reviewing ? 'Writing…' : 'Write from the books'}
+          </button>
+        </div>
+        {review ? (
+          <div>
+            <p className="text-sm text-[#2C261C] whitespace-pre-wrap">{review.review}</p>
+            <p className="text-xs text-[#8A6A3B] mt-2">{review.model}</p>
+          </div>
+        ) : (
+          <p className="text-sm text-[#6B6256]">This calls OpenRouter once and uses the posted totals, budgets, invoices, and open alerts.</p>
+        )}
+      </section>
+
+      <form onSubmit={ask} className="bg-white border border-[#DDD4C4] rounded-md p-5 space-y-3">
+        <h2 className="font-serif text-2xl">Ask the books</h2>
+        <textarea
+          value={question}
+          onChange={(event) => setQuestion(event.target.value)}
+          rows={3}
+          placeholder="Which budget is over its amount, and what cash is in the bank?"
+          className="w-full border border-[#DDD4C4] rounded-md p-3 text-sm"
+        />
+        <button type="submit" disabled={asking || !question.trim()} className="px-3 py-2 bg-[#1C2B24] text-[#F7F1E8] rounded-md text-sm">
+          {asking ? 'Reading the books…' : 'Ask'}
+        </button>
+        {answer && <p className="text-sm text-[#2C261C] whitespace-pre-wrap">{answer.answer}</p>}
+      </form>
 
       <div className="flex gap-2 overflow-x-auto">
         {tabs.map((tab) => (
