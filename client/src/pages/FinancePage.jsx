@@ -116,25 +116,35 @@ export const FinancePage = () => {
             Expense Breakdown
           </h2>
           {expenseBreakdown.length > 0 ? (
-            <ResponsiveContainer width="100%" height={240}>
-              <PieChart>
-                <Pie
-                  data={expenseBreakdown}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  labelLine={false}
-                >
-                  {expenseBreakdown.map((_, i) => (
-                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(v) => fmt(v)} />
-              </PieChart>
-            </ResponsiveContainer>
+            <>
+              <div className="h-44">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={expenseBreakdown} dataKey="value" nameKey="name" innerRadius={46} outerRadius={72} paddingAngle={1}>
+                      {expenseBreakdown.map((entry, i) => (
+                        <Cell key={entry.name} fill={entry.color || COLORS[i % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(v, name) => [fmt(v), name]} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <ul className="mt-3 space-y-2">
+                {expenseBreakdown.map((entry, i) => {
+                  const total = expenseBreakdown.reduce((sum, item) => sum + item.value, 0);
+                  const share = total > 0 ? Math.round((entry.value / total) * 100) : 0;
+                  return (
+                    <li key={entry.name} className="flex items-start justify-between gap-3 text-sm">
+                      <span className="flex items-start gap-2 min-w-0">
+                        <span className="mt-1 w-2.5 h-2.5 rounded-full shrink-0" style={{ background: entry.color || COLORS[i % COLORS.length] }} />
+                        <span className="text-slate-700 leading-5">{entry.name}</span>
+                      </span>
+                      <span className="shrink-0 text-slate-500">{share > 0 ? `${share}%` : '<1%'}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
           ) : (
             <div className="flex items-center justify-center h-48 text-slate-400 text-sm">
               No breakdown data available
